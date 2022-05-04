@@ -1,30 +1,22 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Apr 28 23:21:37 2022
-
-Every apostrophe EXCEPT "A HERMIT'S WILD FRIENDS" needed to be changed
-
-@author: joaby
-"""
+#jbyers3
+#Joshua Byers
 
 from bs4 import BeautifulSoup
 import requests
 import re
-from collections import Counter
 
 if __name__ == '__main__':
-    o_file = open("outfile.txt", "w")
-    url_file = open("sitesToScrap.csv", "r")
+    url_file = open("sitesToScrape.csv", "r")
     url_file_line = url_file.readline()
     MATCH_STRING = "[,\"\.&\|:@<>\(\)\*\$\?\!\\\/;=”“‘\[\]0-9—]"
+    stopwords = ['ut', '\'re','.', ',', '--', '\'s','cf', '?', ')', '(', ':','\'','\"', '-', '}','â','£', '{', '&', '|', u'\u2014', '', ']' ]
+    titles = []
 
-    book_urls_and_titles = []
-    book_word_lists = []
-    i = 1
     word_instance_dict = {}
 
+    book_num = 0
+
     while len(url_file_line) != 0:
-        temp_word_list = []
 
         url_string_and_title = url_file_line.split(',')
 
@@ -32,10 +24,13 @@ if __name__ == '__main__':
         title = url_string_and_title[1]
 
         title = title.strip('\n')
+        
+        #Every apostrophe EXCEPT "A Hermit's Wild Friends" needed to be
+        #   changed
         if title != "A Hermit's Wild Friends":
             title = title.replace("'", "’")
 
-        book_urls_and_titles.append( (url_string, title) )
+        titles.append(title)
 
         print('-'*81 + '\n')
 
@@ -62,19 +57,54 @@ if __name__ == '__main__':
 
                 string = tag.text
                 string = re.sub(MATCH_STRING, " ", string)
-                temp_word_list.extend(string.lower().split())
+                temp_word_list = string.lower().split()
+
+                try:
+                    for word in stopwords:
+                        temp_word_list.remove(word)
+                except:
+                    pass
+
                 for word in temp_word_list:
-                    if word in word_instance_dict:
-                        if title not in word_instance_dict[word]:
-                            word_instance_dict[word].append(title)
+                    if word in word_instance_dict.keys():
+
+                        if title in word_instance_dict[word].keys():
+                            num = word_instance_dict[word][title]
+                            word_instance_dict[word][title] = num + 1
+
+                        else:
+                            word_instance_dict[word][title] = 1
+
                     else:
-                        word_instance_dict[word] = [title]
+                        word_instance_dict[word] = {title: 1}
 
-        o_file.write('-'*81 + '\n')
-
-        book_word_lists.append(temp_word_list)
+        print('-'*81 + '\n')
 
         url_file_line = url_file.readline()
-        i = 0
+
+        book_num = book_num + 1
 
     url_file.close()
+
+    unique_word_instances = [(word, \
+                              next(iter(word_instance_dict[word].values())), \
+                             next(iter(word_instance_dict[word].keys()))) \
+                             for word in word_instance_dict.keys() if \
+                                 len(word_instance_dict[word]) == 1]
+    final_list = {}
+    for title in titles:
+        words = [(instance[0], instance[1]) for instance in \
+                 unique_word_instances if instance[2] == title]
+        words = sorted(words, key=lambda x: x[1], reverse=True)
+
+        final_list[title] = words
+
+    for title in final_list:
+        o_file = open(f"{title}.txt", "w")
+
+        for i in range(0, 25):
+            o_file.write("('{}', {})\n".format(final_list[title][i][0], \
+                                               final_list[title][i][1]))
+
+        o_file.close()
+        
